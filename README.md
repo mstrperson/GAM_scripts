@@ -21,6 +21,7 @@ This section is the living index for the repository. Each time a new script is a
 | Script | Purpose | Notes |
 | --- | --- | --- |
 | `change_drive_folder_owner.sh` | Changes ownership of a Google Drive folder and its contents to a target user. Supports preview mode by default and can run in claim or transfer mode. | Accepts a Drive folder ID or full folder URL. Intended for My Drive content, not Shared Drives. |
+| `manage_gmail_delegates.sh` | Adds or removes Gmail mailbox delegation for one or more delegate accounts against a target mailbox. Defaults to dry-run output before execution. | Accepts repeated delegates, comma-separated lists, or a file of delegate addresses. |
 
 ## Current Scripts
 
@@ -41,6 +42,26 @@ Example:
 ./change_drive_folder_owner.sh \
   --target new.owner@example.com \
   --folder https://drive.google.com/drive/folders/1AbCdEfGhIjKlMnOpQrStUvWxYz
+```
+
+### `manage_gmail_delegates.sh`
+
+Adds or removes Gmail delegation on a target mailbox for one or more delegate users using standard `GAM`.
+
+Key behavior:
+
+- Defaults to dry-run mode so the final `gam` command can be reviewed first
+- Accepts delegates through repeated flags, a comma-separated list, or a text file
+- Supports both add and remove operations with the same interface
+- De-duplicates delegate addresses before building the final command
+
+Example:
+
+```bash
+./manage_gmail_delegates.sh \
+  --mailbox shared.inbox@example.com \
+  --delegate alice@example.com \
+  --delegate bob@example.com
 ```
 
 ## Maintenance
