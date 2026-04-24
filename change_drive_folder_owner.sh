@@ -115,6 +115,39 @@ print_command() {
   printf '\n'
 }
 
+resolve_gam_bin() {
+  local requested="$1"
+  local resolved=""
+  local candidate
+  local -a fallback_paths=(
+    "$HOME/bin/gam"
+    "$HOME/bin/gam7/gam"
+    "/opt/homebrew/bin/gam"
+    "/usr/local/bin/gam"
+  )
+
+  if [[ "$requested" == */* ]]; then
+    [[ -x "$requested" ]] || die "GAM executable is not runnable: $requested"
+    printf '%s\n' "$requested"
+    return 0
+  fi
+
+  resolved="$(command -v "$requested" 2>/dev/null || true)"
+  if [[ -n "$resolved" && -x "$resolved" ]]; then
+    printf '%s\n' "$resolved"
+    return 0
+  fi
+
+  for candidate in "${fallback_paths[@]}"; do
+    if [[ -x "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+
+  die "GAM executable not found. '$requested' is not on PATH for this Bash script. If GAM is configured as a shell alias, pass --gam /full/path/to/gam or set GAM_CMD=/full/path/to/gam."
+}
+
 target=""
 source=""
 folder_input=""
@@ -203,11 +236,7 @@ fi
 
 [[ -n "$path_delimiter" ]] || die "--path-delimiter cannot be empty"
 
-if [[ "$gam_bin" == */* ]]; then
-  [[ -x "$gam_bin" ]] || die "GAM executable is not runnable: $gam_bin"
-else
-  command -v "$gam_bin" >/dev/null 2>&1 || die "GAM executable not found in PATH: $gam_bin"
-fi
+gam_bin="$(resolve_gam_bin "$gam_bin")"
 
 folder_id="$(extract_drive_id "$folder_input")"
 
