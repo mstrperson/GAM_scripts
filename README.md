@@ -20,21 +20,23 @@ This section is the living index for the repository. Each time a new script is a
 
 | Script | Purpose | Notes |
 | --- | --- | --- |
-| `change_drive_folder_owner.sh` | Changes ownership of a Google Drive folder and its contents to a target user. Supports preview mode by default and can run in claim or transfer mode. | Accepts a Drive folder ID or full folder URL. Intended for My Drive content, not Shared Drives. |
+| `change_drive_folder_owner.sh` | Changes ownership of a Google Drive folder to a target user. Supports preview mode by default, can run in claim or transfer mode, and can verify resulting ownership after execution. | Accepts a Drive folder ID or full folder URL. Uses single-folder mode by default; add `--recurse` for descendants. Intended for My Drive content, not Shared Drives. |
 | `manage_gmail_delegates.sh` | Adds or removes Gmail mailbox delegation for one or more delegate accounts against a target mailbox. Defaults to dry-run output before execution. | Accepts repeated delegates, comma-separated lists, or a file of delegate addresses. |
 
 ## Current Scripts
 
 ### `change_drive_folder_owner.sh`
 
-Changes ownership of a Google Drive folder and the items contained within it to a new owner using standard `GAM`.
+Changes ownership of a Google Drive folder to a new owner using standard `GAM`.
 
 Key behavior:
 
 - Defaults to preview mode so the command can be reviewed before execution
 - Accepts either a folder ID or a full Google Drive folder URL
+- Processes only the selected folder by default; add `--recurse` to include descendants
 - Uses `claim ownership` when only the target user is supplied
 - Uses `transfer ownership` when the current owner is explicitly supplied
+- Verifies the resulting ownership after `--execute` unless `--no-verify` is supplied
 
 Example:
 

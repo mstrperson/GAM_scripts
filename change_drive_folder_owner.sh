@@ -6,17 +6,28 @@ usage() {
   cat <<'EOF'
 Usage:
   change_drive_folder_owner.sh --target EMAIL --folder FOLDER_ID_OR_URL [options]
+  change_drive_folder_owner.sh --target EMAIL --folder FOLDER_ID_OR_URL --verify-only [options]
 
 Description:
-  Change ownership of a Google Drive folder and its contents with standard GAM.
+  Change ownership of a Google Drive folder with standard GAM.
 
   By default, the script runs in preview mode and uses:
-    gam user TARGET claim ownership FOLDER_ID preview filepath buildtree
+    gam user TARGET claim ownership FOLDER_ID norecursion preview filepath
 
   If you provide --source, the script switches to transfer mode and uses:
-    gam user SOURCE transfer ownership FOLDER_ID TARGET preview filepath buildtree
+    gam user SOURCE transfer ownership FOLDER_ID TARGET norecursion preview filepath
 
-  Preview mode is the default. Add --execute to apply the change.
+  Preview mode is the default. Preview enumerates the folder tree and reports what
+  would be transferred, but it does not change ownership. Add --execute to apply
+  the change.
+
+  Recursion is opt-in. By default, only the selected folder itself is processed.
+  Add --recurse to include descendant files and folders.
+
+  By default, an executed transfer is followed by a verification pass that checks
+  whether the target user is now the owner of all items in the selected folder
+  tree. Use --no-verify to skip that check, or --verify-only to run only the
+  verification step without changing ownership.
 
 Required arguments:
   --target EMAIL          New owner email address.
@@ -26,6 +37,9 @@ Options:
   --source EMAIL          Current owner. Enables GAM transfer mode instead of claim mode.
   --gam PATH              GAM executable to use. Defaults to $GAM_CMD or `gam`.
   --execute               Apply the ownership change. Without this flag, preview only.
+  --recurse               Include descendant files and folders. Default is folder only.
+  --verify-only           Verify current ownership under the folder without making changes.
+  --no-verify             Skip post-execution verification.
   --include-trashed       Include trashed files.
   --retain-role ROLE      Claim mode only. One of: reader, commenter, writer, editor, none.
                           If omitted, GAM keeps the prior owner as writer.
@@ -37,6 +51,7 @@ Notes:
   - Ownership changes do not apply to Shared Drives.
   - Claim mode is the simpler interface because you only need the target user.
   - Transfer mode is more explicit when you know the current owner of the folder.
+  - Recursion is disabled by default; use --recurse to process the full tree.
   - The safest folder identifier is the Drive folder ID, e.g. the part after /folders/ in:
       https://drive.google.com/drive/folders/1AbCdEfGhIjKlMnOpQrStUvWxYz
 
@@ -51,6 +66,19 @@ Examples:
       --target new.owner@example.com \
       --folder 1AbCdEfGhIjKlMnOpQrStUvWxYz \
       --execute
+
+  Execute recursively:
+    ./change_drive_folder_owner.sh \
+      --target new.owner@example.com \
+      --folder 1AbCdEfGhIjKlMnOpQrStUvWxYz \
+      --recurse \
+      --execute
+
+  Verify current ownership without making changes:
+    ./change_drive_folder_owner.sh \
+      --target new.owner@example.com \
+      --folder 1AbCdEfGhIjKlMnOpQrStUvWxYz \
+      --verify-only
 
   Use explicit source-owner transfer mode:
     ./change_drive_folder_owner.sh \
@@ -115,6 +143,104 @@ print_command() {
   printf '\n'
 }
 
+verify_ownership() {
+  local verify_csv=""
+  local mismatch_csv=""
+  local awk_status=0
+  local total_lines=0
+  local total_items=0
+  local mismatch_lines=0
+  local mismatch_count=0
+  local -a verify_cmd=(
+    "$gam_bin"
+    "config" "csv_output_header_filter" "Owner,id,owners.0.emailAddress"
+    "redirect" "csv"
+    ""
+    "user" "$target"
+    "print" "filelist"
+    "select" "$folder_id"
+    "showownedby" "any"
+    "fields" "id,owners.emailaddress"
+  )
+
+  verify_csv="$(mktemp)"
+  mismatch_csv="$(mktemp)"
+  verify_cmd[6]="$verify_csv"
+
+  if [[ "$include_trashed" == false ]]; then
+    verify_cmd+=("excludetrashed")
+  fi
+
+  if [[ "$recurse" == false ]]; then
+    verify_cmd+=("norecursion")
+  fi
+
+  if [[ "$verbose" == true ]]; then
+    printf 'Verify command: '
+    print_command "${verify_cmd[@]}"
+  fi
+
+  "${verify_cmd[@]}"
+
+  if [[ ! -s "$verify_csv" ]]; then
+    rm -f "$verify_csv" "$mismatch_csv"
+    die "Verification failed: GAM returned no ownership data for folder ID $folder_id"
+  fi
+
+  set +e
+  awk -F, -v target_owner="$target" '
+    NR == 1 {
+      for (i = 1; i <= NF; i++) {
+        if ($i == "owners.0.emailAddress") {
+          owner_col = i
+        }
+      }
+      if (!owner_col) {
+        exit 2
+      }
+      print
+      next
+    }
+    $owner_col != target_owner { print }
+  ' "$verify_csv" > "$mismatch_csv"
+  awk_status=$?
+  set -e
+
+  if [[ "$awk_status" -ne 0 ]]; then
+    rm -f "$verify_csv" "$mismatch_csv"
+    die "Verification failed: could not locate owners.0.emailAddress in GAM CSV output"
+  fi
+
+  total_lines="$(wc -l < "$verify_csv")"
+  if [[ "$total_lines" -gt 0 ]]; then
+    total_items=$((total_lines - 1))
+  fi
+
+  mismatch_lines="$(wc -l < "$mismatch_csv")"
+  if [[ "$mismatch_lines" -gt 0 ]]; then
+    mismatch_count=$((mismatch_lines - 1))
+  fi
+
+  if [[ "$total_items" -le 0 ]]; then
+    rm -f "$verify_csv" "$mismatch_csv"
+    die "Verification failed: no items were returned for folder ID $folder_id"
+  fi
+
+  if [[ "$mismatch_count" -gt 0 ]]; then
+    printf 'Verification failed: %s item(s) in the folder tree are not owned by %s.\n' "$mismatch_count" "$target" >&2
+    printf 'Ownership mismatches (Owner,id,owners.0.emailAddress):\n' >&2
+    sed -n '1,21p' "$mismatch_csv" >&2
+    if [[ "$mismatch_count" -gt 20 ]]; then
+      printf 'Showing first 20 mismatches.\n' >&2
+    fi
+    rm -f "$verify_csv" "$mismatch_csv"
+    exit 1
+  fi
+
+  printf 'Verification successful: %s item(s) in the folder tree are owned by %s.\n' "$total_items" "$target"
+  rm -f "$verify_csv" "$mismatch_csv"
+}
+
 resolve_gam_bin() {
   local requested="$1"
   local resolved=""
@@ -153,6 +279,9 @@ source=""
 folder_input=""
 gam_bin="${GAM_CMD:-gam}"
 execute=false
+verify_only=false
+verify=true
+recurse=false
 include_trashed=false
 verbose=false
 retain_role=""
@@ -182,6 +311,18 @@ while [[ $# -gt 0 ]]; do
       ;;
     --execute)
       execute=true
+      shift
+      ;;
+    --recurse)
+      recurse=true
+      shift
+      ;;
+    --verify-only)
+      verify_only=true
+      shift
+      ;;
+    --no-verify)
+      verify=false
       shift
       ;;
     --include-trashed)
@@ -236,9 +377,21 @@ fi
 
 [[ -n "$path_delimiter" ]] || die "--path-delimiter cannot be empty"
 
+if [[ "$execute" == true && "$verify_only" == true ]]; then
+  die "--execute and --verify-only cannot be used together"
+fi
+
 gam_bin="$(resolve_gam_bin "$gam_bin")"
 
 folder_id="$(extract_drive_id "$folder_input")"
+
+if [[ "$verify_only" == true ]]; then
+  printf 'Mode: verify-only\n'
+  printf 'Folder ID: %s\n' "$folder_id"
+  printf 'Recursive: %s\n' "$recurse"
+  verify_ownership
+  exit 0
+fi
 
 declare -a cmd
 
@@ -255,6 +408,10 @@ else
   fi
 fi
 
+if [[ "$recurse" == false ]]; then
+  cmd+=("norecursion")
+fi
+
 if [[ "$include_trashed" == true ]]; then
   cmd+=("includetrashed")
 fi
@@ -264,7 +421,9 @@ if [[ "$execute" == false ]]; then
   if [[ -n "$path_delimiter" ]]; then
     cmd+=("pathdelimiter" "$path_delimiter")
   fi
-  cmd+=("buildtree")
+  if [[ "$recurse" == true ]]; then
+    cmd+=("buildtree")
+  fi
 fi
 
 if [[ "$verbose" == true || "$execute" == false ]]; then
@@ -274,8 +433,22 @@ if [[ "$verbose" == true || "$execute" == false ]]; then
     printf 'Mode: claim\n'
   fi
   printf 'Folder ID: %s\n' "$folder_id"
+  printf 'Recursive: %s\n' "$recurse"
   printf 'Command: '
   print_command "${cmd[@]}"
 fi
 
-exec "${cmd[@]}"
+if [[ "$execute" == false ]]; then
+  printf 'Preview only: no ownership changes will be made. Re-run with --execute to apply.\n'
+  "${cmd[@]}"
+  printf 'Preview complete. No ownership was changed.\n'
+  exit 0
+fi
+
+"${cmd[@]}"
+
+if [[ "$verify" == true ]]; then
+  verify_ownership
+else
+  printf 'Execution complete. Verification skipped.\n'
+fi
