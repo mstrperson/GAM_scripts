@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Orphaned Files in Google Drive: A Governance Brief</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      font-family: "Georgia", "Times New Roman", serif;
+      font-size: 11pt;
+      line-height: 1.65;
+      color: #1a1a1a;
+      margin: 0;
+      padding: 0;
+    }
+
+    @media screen {
+      body { background: #e8e8e8; }
+      .page {
+        background: white;
+        max-width: 750px;
+        margin: 40px auto;
+        padding: 72px 80px;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+      }
+    }
+
+    @media print {
+      body { background: white; }
+      .page { padding: 0; margin: 0; box-shadow: none; }
+      h2 { page-break-after: avoid; }
+      p, li { orphans: 3; widows: 3; }
+    }
+
+    .cover {
+      text-align: center;
+      padding: 60px 0 48px;
+      border-bottom: 2px solid #2c3e6b;
+      margin-bottom: 48px;
+    }
+
+    .cover .label {
+      font-family: "Helvetica Neue", Arial, sans-serif;
+      font-size: 8.5pt;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #6b7280;
+      margin-bottom: 20px;
+    }
+
+    .cover h1 {
+      font-size: 22pt;
+      font-weight: normal;
+      color: #2c3e6b;
+      margin: 0 0 10px;
+      line-height: 1.3;
+    }
+
+    .cover .subtitle {
+      font-size: 13pt;
+      color: #4b5563;
+      margin: 0 0 32px;
+      font-style: italic;
+    }
+
+    .cover .meta {
+      font-family: "Helvetica Neue", Arial, sans-serif;
+      font-size: 9pt;
+      color: #9ca3af;
+    }
+
+    h2 {
+      font-family: "Helvetica Neue", Arial, sans-serif;
+      font-size: 11pt;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #2c3e6b;
+      margin: 36px 0 10px;
+      padding-bottom: 5px;
+      border-bottom: 1px solid #dce3f0;
+    }
+
+    h3 {
+      font-family: "Helvetica Neue", Arial, sans-serif;
+      font-size: 10.5pt;
+      font-weight: 600;
+      color: #374151;
+      margin: 24px 0 6px;
+    }
+
+    p { margin: 0 0 12px; }
+
+    ul, ol {
+      margin: 0 0 14px;
+      padding-left: 22px;
+    }
+
+    li { margin-bottom: 5px; }
+
+    .callout {
+      background: #f0f4ff;
+      border-left: 4px solid #2c3e6b;
+      padding: 14px 18px;
+      margin: 20px 0;
+      font-size: 10.5pt;
+    }
+
+    .callout strong {
+      display: block;
+      font-family: "Helvetica Neue", Arial, sans-serif;
+      font-size: 9pt;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #2c3e6b;
+      margin-bottom: 5px;
+    }
+
+    .risk-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0 24px;
+      font-size: 10pt;
+    }
+
+    .risk-table th {
+      font-family: "Helvetica Neue", Arial, sans-serif;
+      font-size: 8.5pt;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      background: #2c3e6b;
+      color: white;
+      padding: 8px 12px;
+      text-align: left;
+    }
+
+    .risk-table td {
+      padding: 8px 12px;
+      border-bottom: 1px solid #e5e7eb;
+      vertical-align: top;
+    }
+
+    .risk-table tr:nth-child(even) td {
+      background: #f8f9fb;
+    }
+
+    .tag {
+      display: inline-block;
+      font-family: "Helvetica Neue", Arial, sans-serif;
+      font-size: 8pt;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 3px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .tag-high   { background: #fee2e2; color: #991b1b; }
+    .tag-medium { background: #fef3c7; color: #92400e; }
+    .tag-low    { background: #dcfce7; color: #166534; }
+
+    .footer {
+      margin-top: 56px;
+      padding-top: 14px;
+      border-top: 1px solid #dce3f0;
+      font-family: "Helvetica Neue", Arial, sans-serif;
+      font-size: 8pt;
+      color: #9ca3af;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <div class="cover">
+    <div class="label">Information Technology &mdash; Internal Brief</div>
+    <h1>Orphaned Files in Google Drive</h1>
+    <div class="subtitle">How incomplete offboarding creates long-term<br>data governance and access risks</div>
+    <div class="meta">Prepared May 2026 &nbsp;&middot;&nbsp; Google Workspace Administration</div>
+  </div>
+
+
+  <h2>Executive Summary</h2>
+
+  <p>When a user account is suspended or deleted from a Google Workspace domain without first transferring that user's Google Drive content, the files they owned do not disappear — but they become increasingly difficult to access, manage, or recover. Over time, the accumulation of such files poses risks to data continuity, storage governance, and institutional knowledge retention.</p>
+
+  <p>This brief describes how orphaned Drive files arise, how the problem compounds over time, and what steps should be taken to prevent and remediate it.</p>
+
+  <div class="callout">
+    <strong>Key Finding</strong>
+    A recent audit of Drive content during an offboarding operation revealed files still owned by accounts that had been inactive for five or more years. These files exist in an administrative gray area: they have not been lost, but they are no longer under active management or ownership.
+  </div>
+
+
+  <h2>Background: How Google Drive Ownership Works</h2>
+
+  <p>Every file stored in Google Drive has exactly one owner. Ownership is tied directly to the Google account that created or explicitly claimed the file. This is distinct from access: many users may have read or write access to a file, but only one account holds ownership at any given time.</p>
+
+  <p>Ownership determines who can permanently delete a file, transfer it, or manage its sharing settings at the highest level. When an owning account is suspended or deleted, the underlying file is not automatically removed — but the ownership record becomes associated with an account that can no longer take administrative action.</p>
+
+
+  <h2>How Orphaned Files Accumulate</h2>
+
+  <h3>The typical offboarding gap</h3>
+  <p>A standard user offboarding process commonly includes steps such as revoking system access, disabling accounts, and reassigning responsibilities. What is frequently omitted — particularly in organizations without a formal IT-led offboarding checklist — is the transfer of Google Drive content prior to account suspension.</p>
+
+  <p>Once an account is suspended, its Drive service is disabled. Any files still owned by that account at the time of suspension enter an unmanaged state. They remain visible to users with whom they were shared, but no active account holds ownership responsibility for them.</p>
+
+  <h3>Compounding over time</h3>
+  <p>The problem compounds in several ways as time passes:</p>
+
+  <ul>
+    <li><strong>File proliferation.</strong> Users accumulate files throughout their tenure. The longer someone has been at the organization, the larger and more varied their Drive footprint tends to be — collaborative project folders, shared resources, and files that have been reorganized into other users' Drives over the years.</li>
+    <li><strong>Secondary sharing.</strong> Active users may have files in their own My Drive that were originally created and owned by a since-departed colleague. When those users are themselves offboarded, the pre-existing orphaned files can be left behind again, layering the problem.</li>
+    <li><strong>Loss of context.</strong> After several years, it becomes increasingly difficult to assess whether an orphaned file is still relevant, who originally depended on it, and whether it contains sensitive data. Institutional knowledge about the file's purpose has often left the organization along with its owner.</li>
+    <li><strong>Account deletion.</strong> Google Workspace retains data for a period after account suspension. Once an account is permanently deleted, recovery options become significantly more limited or unavailable. Files that were not transferred before deletion may be unrecoverable.</li>
+  </ul>
+
+  <h3>The "shared but unmanaged" problem</h3>
+  <p>A particularly common scenario is a file or folder that was created by a departed user and shared broadly with the team. Active users can still read and edit the content, so the file appears functional. However, because the owner's account is disabled, no one currently at the organization can take ownership-level actions on it — such as permanently deleting it, restricting sharing, or moving it into a managed shared space. The file is effectively locked in place.</p>
+
+
+  <h2>Risk Assessment</h2>
+
+  <table class="risk-table">
+    <thead>
+      <tr>
+        <th>Risk</th>
+        <th>Description</th>
+        <th>Severity</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Data loss</strong></td>
+        <td>Files owned by permanently deleted accounts may become unrecoverable, taking institutional knowledge with them.</td>
+        <td><span class="tag tag-high">High</span></td>
+      </tr>
+      <tr>
+        <td><strong>Compliance exposure</strong></td>
+        <td>Files containing sensitive data (student records, financial information, personnel documents) may be sitting in an unmanaged state outside of any active data governance policy.</td>
+        <td><span class="tag tag-high">High</span></td>
+      </tr>
+      <tr>
+        <td><strong>Access continuity</strong></td>
+        <td>Active users may be relying on content they cannot ultimately manage or protect. If sharing settings change or the file becomes inaccessible, there is no owner to restore access.</td>
+        <td><span class="tag tag-medium">Medium</span></td>
+      </tr>
+      <tr>
+        <td><strong>Storage costs</strong></td>
+        <td>Orphaned files continue to count against the organization's Google Workspace storage quota. Files in trash owned by disabled accounts are not automatically purged.</td>
+        <td><span class="tag tag-medium">Medium</span></td>
+      </tr>
+      <tr>
+        <td><strong>Audit difficulty</strong></td>
+        <td>It becomes progressively harder to inventory what orphaned content exists, who originally owned it, and what its current access state is.</td>
+        <td><span class="tag tag-medium">Medium</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+
+  <h2>Recommended Offboarding Practice</h2>
+
+  <p>The following steps should be incorporated into every user offboarding workflow, prior to account suspension:</p>
+
+  <ol>
+    <li><strong>Identify the departing user's Drive content.</strong> Run a pre-offboarding audit to enumerate all files and folders owned by the user, including items in their trash.</li>
+    <li><strong>Identify files the receiving party already has access to.</strong> Files that are already shared with the designated successor do not need to be moved — only ownership needs to be transferred. This prevents unnecessary duplication of the Drive structure.</li>
+    <li><strong>Transfer ownership of all owned files</strong> to a designated recipient (a manager, a department account, or a shared service account) before the account is suspended.</li>
+    <li><strong>Document the transfer.</strong> Retain a record of what was transferred, to whom, and when. This serves as an audit trail if questions arise later about where content went.</li>
+    <li><strong>Handle external files.</strong> Files visible in the departing user's Drive that are owned by external accounts cannot be transferred through domain administration. Note their existence and create shortcuts or access references for the successor.</li>
+    <li><strong>Then suspend the account.</strong> Once Drive content has been transferred and documented, it is safe to suspend or delete the account.</li>
+  </ol>
+
+  <div class="callout">
+    <strong>Note on Trashed Files</strong>
+    Files in a user's trash are still owned by that user and still count against storage. They should be explicitly included in any pre-offboarding transfer or audit. A user's trash may contain documents they intended to delete but which have not yet been permanently purged — some of which may be sensitive.
+  </div>
+
+
+  <h2>Handling Personal Files During Transfer</h2>
+
+  <p>Users sometimes store personal files — photographs, personal documents, financial records, or other private content — within their institutional Google Drive account, whether by habit or for convenience. When a Drive transfer is performed as part of offboarding, this content is transferred along with everything else. Administrators carrying out the transfer should be aware of this possibility and handle it with appropriate care.</p>
+
+  <h3>Why this requires deliberate handling</h3>
+  <p>An institutional Google Drive transfer is a bulk operation. It does not distinguish between a project folder and a folder of personal photographs. The administrator performing the transfer will, in the course of verifying and documenting the transfer, necessarily have some visibility into what was transferred — including content that the departing user may have considered private.</p>
+
+  <p>This is not a reason to avoid the transfer. Unmanaged institutional content poses real risks regardless of what else may be present. However, it does create an obligation to handle the process thoughtfully:</p>
+
+  <ul>
+    <li><strong>Access should be limited to what is necessary.</strong> The receiving account should be a designated administrative or departmental account, not a personal colleague account, unless the departing user has consented to that arrangement.</li>
+    <li><strong>The recipient should be informed.</strong> Whoever receives the transferred content should be made aware that it may include personal files, and should treat the contents with discretion rather than browsing freely.</li>
+    <li><strong>The departing user should be notified in advance.</strong> Where possible, communicate to departing users that their Drive content will be transferred as part of offboarding. This gives them the opportunity to remove or relocate personal files before the transfer occurs — which is the cleanest outcome for everyone.</li>
+    <li><strong>Personal files should not be retained unnecessarily.</strong> If clearly personal content is identified after a transfer, it should be deleted promptly rather than archived alongside institutional records.</li>
+  </ul>
+
+  <div class="callout">
+    <strong>Recommended Practice</strong>
+    Include a notice in the offboarding communication to departing users that their Google Drive content will be transferred to a designated account. Advise them to remove personal files prior to their last day. This reduces the likelihood of personal content appearing in the transfer and gives the user agency over their own data.
+  </div>
+
+  <h3>During remediation of older accounts</h3>
+  <p>For accounts that have been suspended for an extended period, the practical opportunity to notify the former account holder has likely passed. In these cases, the same principles apply: limit access to what is necessary, restrict who can browse the recovered content, and dispose of clearly personal material promptly. When in doubt, consult with legal or HR before opening or reviewing the contents of a recovered archive.</p>
+
+
+  <h2>Remediating Existing Orphaned Files</h2>
+
+  <p>For organizations where this gap has existed for some time, remediation requires a systematic approach:</p>
+
+  <ol>
+    <li><strong>Audit suspended accounts.</strong> Identify all suspended accounts in the domain that still have Drive content associated with them, prioritizing accounts disabled most recently (where recovery is still straightforward) and working backwards.</li>
+    <li><strong>Recover accounts temporarily if necessary.</strong> In some cases, the most reliable path to file recovery is to temporarily re-enable a suspended account for the sole purpose of running a Drive transfer, then re-suspend it.</li>
+    <li><strong>Use admin-level transfer tools.</strong> Google Workspace administrators can transfer Drive content from suspended accounts through the Admin Console or via the Admin SDK, without needing to re-enable the account in all cases.</li>
+    <li><strong>Establish a receiving structure.</strong> Determine in advance where transferred content should land — a departmental shared drive, a manager's account, or an archive account — so that recovered files have a clear home.</li>
+    <li><strong>Prioritize by risk.</strong> Start with accounts that held sensitive roles or had large Drive footprints. Accounts inactive for more than three to four years may have content of limited operational value, but should still be inventoried for compliance purposes before any permanent deletion.</li>
+  </ol>
+
+
+  <h2>Conclusion</h2>
+
+  <p>Orphaned Google Drive files are a predictable consequence of an offboarding process that does not include an explicit Drive transfer step. What begins as an administrative oversight compounds quietly over years, accumulating into a collection of unmanaged content that is difficult to inventory, impossible to govern, and potentially at risk of permanent loss.</p>
+
+  <p>Addressing this requires both a prospective fix — adding Drive transfer to the standard offboarding checklist — and a retrospective remediation effort to work through the backlog of accounts where the step was missed. The sooner remediation begins, the more options remain available.</p>
+
+  <div class="footer">
+    Google Workspace Administration &nbsp;&middot;&nbsp; Internal Use Only &nbsp;&middot;&nbsp; May 2026
+  </div>
+
+</div>
+</body>
+</html>
