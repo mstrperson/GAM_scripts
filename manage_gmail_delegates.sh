@@ -5,16 +5,18 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  manage_gmail_delegates.sh --mailbox EMAIL (--delegate EMAIL | --delegates LIST | --delegate-file FILE) [options]
+  manage_gmail_delegates.sh (--mailbox EMAIL | --mailboxes LIST | --mailbox-file FILE) (--delegate EMAIL | --delegates LIST | --delegate-file FILE) [options]
 
 Description:
-  Add or remove Gmail delegates for a target mailbox with standard GAM.
+  Add or remove Gmail delegates for one or more target mailboxes with standard GAM.
 
   By default, the script runs in dry-run mode and prints the GAM command it would run.
   Add --execute to apply the change.
 
-Required arguments:
-  --mailbox EMAIL         Target mailbox that will grant or remove delegation.
+Mailbox input:
+  --mailbox EMAIL         Target mailbox. Repeat this flag for multiple mailboxes.
+  --mailboxes LIST        Comma-separated mailbox email list.
+  --mailbox-file FILE     File containing one mailbox email per line.
 
 Delegate input:
   --delegate EMAIL        Delegate email address. Repeat this flag for multiple delegates.
@@ -35,21 +37,21 @@ Notes:
   - Dry-run mode only validates inputs and prints the final GAM command.
 
 Examples:
-  Preview adding two delegates:
+  Preview adding two delegates to one mailbox:
     ./manage_gmail_delegates.sh \
       --mailbox shared.inbox@example.com \
       --delegate alice@example.com \
       --delegate bob@example.com
 
-  Execute an add using a comma-separated list:
+  Execute an add across multiple mailboxes (comma-separated):
     ./manage_gmail_delegates.sh \
-      --mailbox shared.inbox@example.com \
+      --mailboxes inbox1@example.com,inbox2@example.com \
       --delegates alice@example.com,bob@example.com \
       --execute
 
-  Execute a removal using a file:
+  Execute a removal for mailboxes from a file:
     ./manage_gmail_delegates.sh \
-      --mailbox shared.inbox@example.com \
+      --mailbox-file mailboxes.txt \
       --delegate-file delegates.txt \
       --remove \
       --execute
@@ -140,6 +142,49 @@ load_delegate_file() {
   done < "$file_path"
 }
 
+add_mailbox_value() {
+  local raw="$1"
+  local part
+
+  IFS=',' read -r -a split_parts <<< "$raw"
+  for part in "${split_parts[@]}"; do
+    part="${part#"${part%%[![:space:]]*}"}"
+    part="${part%"${part##*[![:space:]]}"}"
+    [[ -n "$part" ]] || continue
+    mailbox_inputs+=("$part")
+  done
+}
+
+load_mailbox_file() {
+  local file_path="$1"
+  local line=""
+
+  [[ -f "$file_path" ]] || die "Mailbox file not found: $file_path"
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line%%#*}"
+    line="${line#"${line%%[![:space:]]*}"}"
+    line="${line%"${line##*[![:space:]]}"}"
+    [[ -n "$line" ]] || continue
+    add_mailbox_value "$line"
+  done < "$file_path"
+}
+
+append_unique_mailbox() {
+  local candidate="$1"
+  local existing
+
+  if [[ "${#validated_mailboxes[@]}" -gt 0 ]]; then
+    for existing in "${validated_mailboxes[@]}"; do
+      if [[ "$existing" == "$candidate" ]]; then
+        return 0
+      fi
+    done
+  fi
+
+  validated_mailboxes+=("$candidate")
+}
+
 append_unique_delegate() {
   local candidate="$1"
   local existing
@@ -155,13 +200,15 @@ append_unique_delegate() {
   validated_delegates+=("$candidate")
 }
 
-mailbox=""
 gam_bin="${GAM_CMD:-gam}"
 execute=false
 remove=false
 convert_alias=false
 verbose=false
+mailbox_file=""
 delegate_file=""
+declare -a mailbox_inputs=()
+declare -a validated_mailboxes=()
 declare -a delegate_inputs=()
 declare -a validated_delegates=()
 
@@ -169,7 +216,17 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --mailbox)
       require_value "$1" "${2-}"
-      mailbox="$2"
+      add_mailbox_value "$2"
+      shift 2
+      ;;
+    --mailboxes)
+      require_value "$1" "${2-}"
+      add_mailbox_value "$2"
+      shift 2
+      ;;
+    --mailbox-file)
+      require_value "$1" "${2-}"
+      mailbox_file="$2"
       shift 2
       ;;
     --delegate)
@@ -218,8 +275,16 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-[[ -n "$mailbox" ]] || die "Missing required argument: --mailbox"
-is_valid_email "$mailbox" || die "Invalid --mailbox email address: $mailbox"
+if [[ -n "$mailbox_file" ]]; then
+  load_mailbox_file "$mailbox_file"
+fi
+
+[[ "${#mailbox_inputs[@]}" -gt 0 ]] || die "Provide at least one mailbox with --mailbox, --mailboxes, or --mailbox-file"
+
+for mailbox in "${mailbox_inputs[@]}"; do
+  is_valid_email "$mailbox" || die "Invalid --mailbox email address: $mailbox"
+  append_unique_mailbox "$mailbox"
+done
 
 if [[ -n "$delegate_file" ]]; then
   load_delegate_file "$delegate_file"
@@ -242,34 +307,42 @@ for delegate in "${validated_delegates[@]}"; do
   delegate_csv+="$delegate"
 done
 
-declare -a cmd=("$gam_bin" "user" "$mailbox")
+overall_rc=0
 
-if [[ "$remove" == true ]]; then
-  cmd+=("delete" "delegates")
-else
-  cmd+=("add" "delegates")
-fi
+for mailbox in "${validated_mailboxes[@]}"; do
+  cmd=("$gam_bin" "user" "$mailbox")
 
-if [[ "$convert_alias" == true ]]; then
-  cmd+=("convertalias")
-fi
-
-cmd+=("$delegate_csv")
-
-if [[ "$verbose" == true || "$execute" == false ]]; then
   if [[ "$remove" == true ]]; then
-    printf 'Mode: remove\n'
+    cmd+=("delete" "delegates")
   else
-    printf 'Mode: add\n'
+    cmd+=("add" "delegates")
   fi
-  printf 'Mailbox: %s\n' "$mailbox"
-  printf 'Delegates: %s\n' "$delegate_csv"
-  printf 'Command: '
-  print_command "${cmd[@]}"
-fi
+
+  if [[ "$convert_alias" == true ]]; then
+    cmd+=("convertalias")
+  fi
+
+  cmd+=("$delegate_csv")
+
+  if [[ "$verbose" == true || "$execute" == false ]]; then
+    if [[ "$remove" == true ]]; then
+      printf 'Mode: remove\n'
+    else
+      printf 'Mode: add\n'
+    fi
+    printf 'Mailbox: %s\n' "$mailbox"
+    printf 'Delegates: %s\n' "$delegate_csv"
+    printf 'Command: '
+    print_command "${cmd[@]}"
+  fi
+
+  if [[ "$execute" == true ]]; then
+    "${cmd[@]}" || { rc=$?; printf 'Error: GAM returned %d for mailbox %s\n' "$rc" "$mailbox" >&2; overall_rc=$rc; }
+  fi
+done
 
 if [[ "$execute" == false ]]; then
   exit 0
 fi
 
-exec "${cmd[@]}"
+exit "$overall_rc"
